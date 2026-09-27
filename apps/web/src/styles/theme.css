@@ -1,0 +1,958 @@
+/* ── the kitchen journal, in grub colours ────────────────────────────
+   Sage paper, green ink, the olive of the original grub client
+   (#50652c / #D2ECA5 / #6b9992, Lora + Montserrat). Lora for the
+   hand-set display moments, Montserrat for everything written down. */
+
+:root {
+  --paper: #f3f4ed;
+  --paper-raised: #e7eeda;
+  --ink: #272b20;
+  --ink-faded: #76806a;
+  --ink-faint: #a8b29a;
+  --rule: #d8e0c8;
+  --accent: #50652c;
+  --accent-soft: #d2eca5;
+  --sage: #6b9992;
+  --sage-soft: #e1ebe9;
+  --error: #a4452c;
+
+  --font-display: 'Lora', 'Georgia', serif;
+  --font-body: 'Montserrat', 'Helvetica Neue', sans-serif;
+
+  --nav-height: 64px;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+/* faint paper grain over everything */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.35;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.05'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+#root {
+  max-width: 640px;
+  margin: 0 auto;
+  min-height: 100dvh;
+}
+
+button {
+  font-family: var(--font-body);
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+input {
+  font-family: var(--font-body);
+  border: none;
+  background: none;
+  color: var(--ink);
+  outline: none;
+  padding: 0;
+}
+
+/* ── shared type styles ── */
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 550;
+  letter-spacing: -0.01em;
+}
+
+.smallcaps {
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faded);
+}
+
+/* ── page scaffold ── */
+
+.page {
+  padding: 18px 20px calc(var(--nav-height) + 32px);
+  animation: page-in 320ms ease-out both;
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* (list/stagger reveals are framer-motion driven; page-in remains for
+   whole-page entry only) */
+
+/* ── bottom navigation ── */
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--nav-height) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: color-mix(in srgb, var(--paper-raised) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--rule);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
+
+/* the three page tabs are a tight cluster, centred in the whole bar exactly
+   as before — gap unchanged */
+.nav-pages {
+  display: flex;
+  gap: 44px;
+  align-items: center;
+}
+
+.bottom-nav a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  text-decoration: none;
+  color: var(--ink-faded);
+  width: 64px;
+}
+
+.bottom-nav a.active {
+  color: var(--accent);
+}
+
+/* the account avatar is not a peer of the page tabs — pinned to the far
+   right, out of the flow so the centred cluster is undisturbed */
+.bottom-nav a.you {
+  position: absolute;
+  right: 16px;
+  top: 0;
+  bottom: env(safe-area-inset-bottom);
+  width: auto;
+}
+
+.bottom-nav .smallcaps {
+  color: inherit;
+  font-size: 0.62rem;
+}
+
+.bottom-nav svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* ── week view ── */
+
+.week-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 6px 0 18px;
+}
+
+.week-header h1 {
+  font-size: 1.9rem;
+  margin: 0;
+  font-style: italic;
+  font-weight: 480;
+}
+
+.week-nav {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Arrow buttons are circles; the today pill styles itself */
+.week-nav button:not(.today-pill) {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--ink-faded);
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.week-nav button:active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.today-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 4px 12px;
+  margin-right: 4px;
+  transition: opacity 200ms ease;
+}
+
+.week-range {
+  margin-left: 10px;
+  font-style: normal;
+}
+
+.day-block {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 14px;
+  padding: 14px 0 10px;
+}
+
+.day-block + .day-block {
+  border-top: 1px solid var(--rule);
+}
+
+.day-label {
+  text-align: center;
+  padding-top: 2px;
+}
+
+.day-label .dow {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-faded);
+}
+
+.day-label .num {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 500;
+  line-height: 1.15;
+}
+
+.day-block.today .day-label .dow,
+.day-block.today .day-label .num {
+  color: var(--accent);
+}
+
+.day-block.today .day-label .num::after {
+  content: '';
+  display: block;
+  width: 22px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  margin: 2px auto 0;
+}
+
+.entries {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.entry-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0 6px;
+  border-bottom: 1px dashed var(--rule);
+  font-size: 1.05rem;
+}
+
+.entry-row .text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.entry-row .linked-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sage);
+  flex: none;
+}
+
+.entry-row .remove {
+  color: var(--ink-faint);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 4px 6px;
+  opacity: 0.7;
+}
+
+.entry-row .remove:active {
+  color: var(--accent);
+}
+
+.entry-row input {
+  flex: 1;
+  font-size: 1.05rem;
+  line-height: 1.45;
+}
+
+.add-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0 6px;
+  color: var(--ink-faint);
+  font-size: 1.05rem;
+  text-align: left;
+  width: 100%;
+  transition: color 160ms ease;
+}
+
+.add-entry:active {
+  color: var(--accent);
+}
+
+.add-entry .plus {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  line-height: 1;
+  transform: translateY(1px);
+}
+
+.saving-indicator {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  z-index: 20;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faded);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
+.saving-indicator.error {
+  color: #fff;
+  background: var(--error);
+  border-color: var(--error);
+}
+
+/* ── library ──
+   The index page of the journal: names on the paper itself, dot leaders
+   out to the ingredient count, dashed rules between entries (as the
+   week's entry rows). Expanding an entry inks it in accent and unfolds
+   the ingredients as a flowing line, not a bulleted block. */
+
+.library-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
+.meal-card {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0 11px;
+  border-bottom: 1px dashed var(--rule);
+}
+
+.meal-card .row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.meal-card img {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  display: block;
+  flex: none;
+  align-self: center;
+  border-radius: 6px;
+}
+
+.meal-card h3 {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 550;
+  margin: 0;
+  line-height: 1.3;
+  min-width: 0;
+  transition: color 140ms ease;
+}
+
+.meal-card .leader {
+  flex: 1;
+  min-width: 24px;
+  height: 3px;
+  align-self: flex-end;
+  margin-bottom: 7px;
+  background-image: radial-gradient(circle, var(--ink-faint) 1px, transparent 1.4px);
+  background-size: 7px 3px;
+  background-repeat: repeat-x;
+}
+
+.meal-card .count {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  color: var(--ink-faded);
+  transition: color 140ms ease;
+}
+
+.meal-card:active h3,
+.meal-card.expanded h3,
+.meal-card.expanded .count {
+  color: var(--accent);
+}
+
+.meal-card .ingredients {
+  padding: 4px 0 2px 14px;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--ink-faded);
+}
+
+.meal-card .ingredients .details {
+  display: block;
+  margin: 4px 0 2px;
+}
+
+.meal-card .ingredients ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.meal-card .ingredients li {
+  padding: 1px 0;
+}
+
+.meal-card .ingredients li::before {
+  content: '· ';
+  color: var(--ink-faint);
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--ink-faded);
+  margin-top: 80px;
+  padding: 0 32px;
+}
+
+.empty-state .display {
+  font-size: 1.4rem;
+  font-style: italic;
+  color: var(--ink);
+}
+
+/* ── shop / receipt upload ── */
+
+.upload-card {
+  background: var(--paper-raised);
+  border: 1px dashed var(--ink-faint);
+  border-radius: 12px;
+  padding: 28px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.upload-card.working {
+  border-style: solid;
+  border-color: var(--rule);
+}
+
+.upload-card .working-text {
+  font-style: italic;
+  font-size: 1.2rem;
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+.upload-card textarea {
+  width: 100%;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  resize: vertical;
+  outline: none;
+}
+
+.upload-actions {
+  display: flex;
+  gap: 10px;
+  align-self: flex-end;
+}
+
+.pill {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 10px 18px;
+  border: 1px solid var(--ink-faint);
+  color: var(--ink-faded);
+  transition: transform 120ms ease;
+}
+
+.pill:active {
+  transform: scale(0.97);
+}
+
+.pill.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.pill:disabled {
+  opacity: 0.4;
+}
+
+.upload-error {
+  color: var(--error);
+  font-size: 0.9rem;
+  margin: 12px 2px;
+}
+
+.ingestion-result {
+  margin-top: 22px;
+}
+
+.ingestion-result h2 {
+  font-size: 1.3rem;
+  font-weight: 520;
+  margin: 0 0 10px;
+}
+
+.linked-meal {
+  border-top: 1px dashed var(--rule);
+  padding: 10px 0;
+}
+
+.linked-meal-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.linked-meal .name {
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+  font-weight: 550;
+}
+
+.linked-meal .tag {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sage);
+  border: 1px solid var(--sage);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.unlinked-summary {
+  margin-top: 14px;
+}
+
+.receipt-history {
+  margin-top: 32px;
+}
+
+.receipt-history h2 {
+  margin: 0 0 6px;
+}
+
+.receipt-row {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  border-top: 1px solid var(--rule);
+  padding: 9px 0;
+  font-size: 0.95rem;
+}
+
+.receipt-row .date {
+  font-weight: 700;
+}
+
+.receipt-row .items {
+  color: var(--ink-faded);
+  flex: 1;
+}
+
+.receipt-row .total {
+  font-family: var(--font-display);
+  font-weight: 550;
+}
+
+/* ── login ── */
+
+.login-page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px;
+  text-align: center;
+}
+
+.login-page .logo {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 6px;
+}
+
+.login-page .brand {
+  font-family: var(--font-display);
+  font-size: 4.4rem;
+  font-weight: 600;
+  margin: 0;
+  line-height: 1;
+}
+
+.login-page .brand .full-stop {
+  color: var(--accent);
+}
+
+.login-page .strapline {
+  font-style: italic;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.15rem;
+  color: var(--ink-faded);
+  margin: 0 0 40px;
+}
+
+.login-page .rule {
+  width: 48px;
+  height: 1px;
+  background: var(--ink-faint);
+  margin: 18px 0;
+}
+
+.loading-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  color: var(--ink-faded);
+  font-style: italic;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+}
+
+/* ── avatar ──
+   A photo when we have one, the user's initials inked on accent-soft when
+   we don't (or when the Google url has expired). */
+
+.avatar {
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  flex: none;
+}
+
+.avatar-initials {
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* the avatar sits where a nav icon would; the active tab rings it */
+.nav-avatar {
+  display: block;
+  border-radius: 50%;
+  padding: 1px;
+  border: 2px solid transparent;
+  line-height: 0;
+}
+
+.bottom-nav a.active .nav-avatar {
+  border-color: var(--accent);
+}
+
+/* ── profile ── */
+
+.profile-identity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 0 22px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.profile-identity h1 {
+  font-size: 1.7rem;
+  font-weight: 550;
+  margin: 0;
+}
+
+.profile-section {
+  padding: 22px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.profile-section > h2,
+.profile-section .section-head {
+  margin: 0 0 14px;
+}
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.status-dot {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faded);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+}
+
+.status-dot.on::before {
+  background: var(--accent);
+}
+
+.status-dot.off::before {
+  background: var(--error);
+}
+
+.section-note {
+  color: var(--ink-faded);
+  font-size: 0.95rem;
+  margin: 0 0 14px;
+}
+
+/* family group */
+
+.member-list {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.05rem;
+}
+
+.member-empty {
+  color: var(--ink-faded);
+  font-style: italic;
+}
+
+/* two actions side by side; picking either replaces both with its input.
+   idle and active rows share a fixed height so switching never reflows the
+   sections below. */
+.fg-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+}
+
+.fg-actions .pill {
+  flex: 1;
+  text-align: center;
+}
+
+/* invite/join mode stays on one line — same height as the idle button row,
+   so entering a mode doesn't reflow the rest of the page. The × dismisses. */
+.fg-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+}
+
+.fg-mode .join-row {
+  flex: 1;
+}
+
+/* the invite link is read-only — muted text the user copies, not an input.
+   nowrap + ellipsis keeps it one line so the row height never changes. */
+.invite-link-display {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.9rem;
+  color: var(--ink-faded);
+}
+
+.fg-cancel {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--ink-faded);
+}
+
+.fg-cancel:active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.join-row {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.join-row input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: #fff;
+  padding: 9px 16px;
+  font-size: 0.95rem;
+}
+
+.join-row input::placeholder {
+  color: var(--ink-faint);
+}
+
+.join-row .pill {
+  flex: none;
+}
+
+/* calendar list */
+
+.calendar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.calendar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 160ms ease, border-color 160ms ease;
+}
+
+.calendar-row.active {
+  opacity: 1;
+  border-color: var(--accent-soft);
+}
+
+.calendar-row:active {
+  transform: scale(0.995);
+}
+
+.calendar-row .swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  flex: none;
+}
+
+.calendar-row .name {
+  flex: 1;
+  min-width: 0;
+  font-size: 1rem;
+}
+
+.calendar-row .toggle {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--ink-faint);
+  flex: none;
+}
+
+.calendar-row .toggle.on {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: inset 0 0 0 3px var(--paper);
+}
+
+.logout-pill {
+  margin-top: 26px;
+}

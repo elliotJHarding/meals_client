@@ -1,0 +1,10 @@
+{
+  "name": "meals_client",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Meals 2.0 clients — polished React DOM web (apps/web) and native Expo app (apps/native), sharing packages/core. See ../SPEC_MOBILE.md.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
