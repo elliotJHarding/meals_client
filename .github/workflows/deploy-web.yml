@@ -20,7 +20,7 @@ on:
       meals_model_ref:
         description: 'meals_model tag or branch the contract TypeScript package is generated from'
         required: true
-        default: 'v1.0.3'
+        default: 'v1.0.4'
       meals_cluster_ref:
         description: 'meals_cluster branch the manifests are read from'
         required: true
