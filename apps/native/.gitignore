@@ -1,0 +1,12 @@
+# Expo generated artifacts (apps/native)
+# Root .gitignore already ignores node_modules, .expo and *.orig; these are
+# the additional Expo-managed files that must not be committed.
+.expo/
+expo-env.d.ts
+
+# Native build output (prebuild / EAS)
+/ios
+/android
+
+# Metro
+.metro-health-check*

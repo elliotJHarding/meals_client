@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "Grub",
+    "slug": "grub",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "grub",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "experiments": {
+      "typedRoutes": true
+    },
+    "ios": {
+      "bundleIdentifier": "com.harding.meals-ios-client",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.harding.meals_android_client",
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "node_modules/@expo-google-fonts/lora/400Regular/Lora_400Regular.ttf",
+            "node_modules/@expo-google-fonts/lora/600SemiBold/Lora_600SemiBold.ttf",
+            "node_modules/@expo-google-fonts/lora/700Bold/Lora_700Bold.ttf",
+            "node_modules/@expo-google-fonts/montserrat/400Regular/Montserrat_400Regular.ttf",
+            "node_modules/@expo-google-fonts/montserrat/500Medium/Montserrat_500Medium.ttf",
+            "node_modules/@expo-google-fonts/montserrat/600SemiBold/Montserrat_600SemiBold.ttf"
+          ]
+        }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.<YOUR_IOS_CLIENT_ID>"
+        }
+      ],
+      [
+        "expo-share-intent",
+        {
+          "androidIntentFilters": ["text/*", "message/rfc822"],
+          "iosActivationRules": "SUBQUERY (extensionItems, $extensionItem, SUBQUERY ($extensionItem.attachments, $attachment, ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO \"public.text\" || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO \"public.email-message\" || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO \"public.url\").@count > 0).@count > 0"
+        }
+      ]
+    ]
+  }
+}
