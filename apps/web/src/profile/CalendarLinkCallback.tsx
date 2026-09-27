@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import * as calendarApi from '../api/calendar';
+import { useLinkCalendar } from '@meals_client/core';
 
 // Where Google sends the user back after the consent screen. We exchange the
 // `code` for a linked calendar, then return to the profile. The ref guards
@@ -10,6 +10,7 @@ export default function CalendarLinkCallback() {
   const navigate = useNavigate();
   const [error, setError] = useState(false);
   const exchanged = useRef(false);
+  const linkCalendar = useLinkCalendar();
 
   useEffect(() => {
     if (exchanged.current) return;
@@ -21,8 +22,10 @@ export default function CalendarLinkCallback() {
       return;
     }
 
-    calendarApi
-      .linkCalendar(code)
+    // useLinkCalendar decodes the code and invalidates the calendar queries on
+    // success, so the profile reflects the new link when we navigate back.
+    linkCalendar
+      .mutateAsync(code)
       .then(() => navigate('/profile', { replace: true }))
       .catch(() => setError(true));
   }, [searchParams, navigate]);

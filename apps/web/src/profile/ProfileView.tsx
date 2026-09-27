@@ -1,10 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, FamilyGroupDto } from '@elliotJHarding/meals-api';
+import { Calendar } from '@elliotJHarding/meals-api';
+import {
+  useFamilyGroup,
+  useCreateFamilyGroup,
+  useJoinFamilyGroup,
+  useCalendarAuthorized,
+  useCalendars,
+  useUpdateActiveCalendars,
+  useCalendarAuthUrl,
+} from '@meals_client/core';
 import { useAuth } from '../auth/AuthContext';
 import Avatar from '../components/Avatar';
-import * as familyGroupApi from '../api/family-group';
-import * as calendarApi from '../api/calendar';
 
 export default function ProfileView() {
   const { user, logout } = useAuth();
@@ -35,26 +42,26 @@ export default function ProfileView() {
 type FgMode = 'idle' | 'invite' | 'join';
 
 function FamilyGroupSection() {
-  const [group, setGroup] = useState<FamilyGroupDto | null>(null);
+  // The group lives in the familyGroup cache; useFamilyGroup maps "no group" to
+  // null. Create/join both seed that cache, so the member list and uuid here
+  // update without local group state.
+  const { data: group } = useFamilyGroup();
+  const createFamilyGroup = useCreateFamilyGroup();
+  const joinFamilyGroup = useJoinFamilyGroup();
   const [mode, setMode] = useState<FgMode>('idle');
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [joining, setJoining] = useState(false);
 
-  useEffect(() => {
-    familyGroupApi.getFamilyGroup().then(setGroup).catch(() => setGroup(null));
-  }, []);
-
   const linkFor = (uuid: string) => `${window.location.origin}/join/${uuid}`;
 
   const startInvite = async () => {
     setMode('invite');
     // A group only exists once invited; create one on first invite. The
-    // create endpoint returns the new group's uuid directly.
-    const uuid = group?.uuid ?? (await familyGroupApi.createFamilyGroup());
+    // create mutation returns the new group's uuid and seeds the cache.
+    const uuid = group?.uuid ?? (await createFamilyGroup.mutateAsync());
     if (!uuid) return;
-    setGroup((current) => ({ uuid, users: current?.users ?? [] }));
     setInviteLink(linkFor(uuid));
   };
 
@@ -76,8 +83,7 @@ function FamilyGroupSection() {
     if (!code) return;
     setJoining(true);
     try {
-      const joined = await familyGroupApi.joinFamilyGroup(code);
-      setGroup(joined);
+      await joinFamilyGroup.mutateAsync(code);
       setJoinCode('');
       setMode('idle');
     } finally {
@@ -150,45 +156,36 @@ function FamilyGroupSection() {
 }
 
 function CalendarSection() {
-  const [authorized, setAuthorized] = useState<boolean | null>(null);
-  const [calendars, setCalendars] = useState<Calendar[]>([]);
+  // authorized stays tri-state: undefined while the query is in flight (render
+  // nothing yet, matching the old `null`), then the resolved boolean. The
+  // calendars query only runs once authorised.
+  const { data: authorized } = useCalendarAuthorized();
+  const { data: calendars = [] } = useCalendars(authorized === true);
+  const updateActiveCalendars = useUpdateActiveCalendars();
+  const calendarAuthUrl = useCalendarAuthUrl();
   const [connecting, setConnecting] = useState(false);
-
-  useEffect(() => {
-    calendarApi
-      .isCalendarAuthorized()
-      .then((isAuthorized) => {
-        setAuthorized(isAuthorized);
-        if (isAuthorized) {
-          calendarApi.getCalendars().then(setCalendars).catch(() => setCalendars([]));
-        }
-      })
-      .catch(() => setAuthorized(false));
-  }, []);
 
   const onConnect = async () => {
     setConnecting(true);
     // Full-page redirect to Google's consent screen; the server returns the
     // user to /calendar/link with a `code` we exchange there.
-    window.location.href = await calendarApi.getCalendarAuthUrl();
+    window.location.href = await calendarAuthUrl.mutateAsync();
   };
 
   const onToggle = (calendar: Calendar) => {
+    // Pass the full intended list (toggle applied); the mutation writes it
+    // optimistically into the cache and reverts on failure.
     const updated = calendars.map((c) =>
       c.id === calendar.id ? { ...c, active: !c.active } : c,
     );
-    setCalendars(updated);
-    calendarApi.updateActiveCalendars(updated).catch(() => {
-      // Revert on failure so the UI stays truthful.
-      setCalendars(calendars);
-    });
+    updateActiveCalendars.mutate(updated);
   };
 
   return (
     <section className="profile-section">
       <div className="section-head">
         <h2 className="smallcaps">calendar</h2>
-        {authorized !== null && (
+        {authorized !== undefined && (
           <span className={`status-dot ${authorized ? 'on' : 'off'}`}>
             {authorized ? 'connected' : 'not connected'}
           </span>

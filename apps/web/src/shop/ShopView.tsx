@@ -1,16 +1,20 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { ReceiptIngestionResultDto } from '@elliotJHarding/meals-api';
 import {
-  ReceiptDto,
-  ReceiptIngestionResultDto,
+  useReceipts,
+  useIngestReceipt,
+  ingestErrorMessage,
   IngestReceiptRequestFormatEnum,
-} from '@elliotJHarding/meals-api';
-import { getReceipts, ingestReceipt } from '../api/receipts';
+} from '@meals_client/core';
 
 type UploadState = 'idle' | 'working' | 'error';
 
 export default function ShopView() {
-  const [receipts, setReceipts] = useState<ReceiptDto[]>([]);
+  // The receipts list re-fetches itself after a successful ingest (the ingest
+  // mutation invalidates ['receipts']); errors map to a benign empty list.
+  const { data: receipts = [] } = useReceipts();
+  const ingestReceipt = useIngestReceipt();
   const [uploadState, setUploadState] = useState<UploadState>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [result, setResult] = useState<ReceiptIngestionResultDto | null>(null);
@@ -18,24 +22,18 @@ export default function ShopView() {
   const [pastedText, setPastedText] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    getReceipts().then(setReceipts).catch(console.error);
-  }, []);
-
   const ingest = async (rawContent: string, format: IngestReceiptRequestFormatEnum) => {
     setUploadState('working');
     setResult(null);
     try {
-      const outcome = await ingestReceipt(rawContent, format);
+      const outcome = await ingestReceipt.mutateAsync({ rawContent, format });
       setResult(outcome);
       setUploadState('idle');
       setPasting(false);
       setPastedText('');
-      getReceipts().then(setReceipts).catch(console.error);
     } catch (error: unknown) {
       console.error('Ingestion failed', error);
-      const detail = (error as { response?: { data?: { message?: string } } }).response?.data?.message;
-      setErrorMessage(detail ?? 'Something went wrong reading the receipt');
+      setErrorMessage(ingestErrorMessage(error) ?? 'Something went wrong reading the receipt');
       setUploadState('error');
     }
   };

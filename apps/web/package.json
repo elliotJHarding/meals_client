@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@elliotJHarding/meals-api": "file:../../../meals_model/build/typescript-package",
+    "@meals_client/core": "*",
     "@react-oauth/google": "^0.12.1",
+    "@tanstack/react-query": "^5.0.0",
     "axios": "^1.6.7",
     "framer-motion": "^11.18.2",
     "react": "^18.2.0",

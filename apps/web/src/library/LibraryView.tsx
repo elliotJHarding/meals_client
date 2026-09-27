@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { MealDto } from '@elliotJHarding/meals-api';
-import { getAllMeals } from '../api/meals';
+import { useMeals } from '@meals_client/core';
 
 const listVariants = {
   shown: { transition: { staggerChildren: 0.04 } },
@@ -13,15 +12,10 @@ const rowVariants = {
 };
 
 export default function LibraryView() {
-  const [meals, setMeals] = useState<MealDto[]>([]);
-  const [loading, setLoading] = useState(true);
+  // useMeals returns the library already sorted alphabetically (the sort lives
+  // in the hook's `select`), matching what this view used to do by hand.
+  const { data: meals = [], isLoading: loading } = useMeals();
   const [expandedId, setExpandedId] = useState<number | null>(null);
-
-  useEffect(() => {
-    getAllMeals()
-      .then((all) => setMeals([...all].sort((a, b) => a.name.localeCompare(b.name))))
-      .finally(() => setLoading(false));
-  }, []);
 
   if (loading) {
     return <div className="loading-page">leafing through…</div>;
