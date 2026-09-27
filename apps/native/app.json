@@ -4,6 +4,7 @@
     "slug": "grub",
     "version": "0.1.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "scheme": "grub",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -16,6 +17,10 @@
     },
     "android": {
       "package": "com.harding.meals_android_client",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#f3f4ed"
+      },
       "edgeToEdgeEnabled": true
     },
     "web": {
