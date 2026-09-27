@@ -1,0 +1,128 @@
+name: Deploy Web
+
+# Builds apps/web into grubplanner.co.uk:32000/meals_client_web and applies the
+# meals-client-web Deployment, Service and the shared Ingress from meals_cluster.
+#
+# mode=diff  : read-only; prints `kubectl diff` of those manifests against the live cluster.
+# mode=deploy: builds and pushes the image, applies the manifests, restarts the deployment.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diff (read-only) or deploy'
+        required: true
+        default: 'diff'
+        type: choice
+        options:
+          - diff
+          - deploy
+      meals_model_ref:
+        description: 'meals_model tag or branch the contract TypeScript package is generated from'
+        required: true
+        default: 'v1.0.3'
+      meals_cluster_ref:
+        description: 'meals_cluster branch the manifests are read from'
+        required: true
+        default: 'main'
+
+env:
+  MANIFESTS: >-
+    meals_cluster/apps/meals-client-web/deployment.yaml
+    meals_cluster/apps/meals-client-web/service.yaml
+    meals_cluster/infrastructure/ingress/ingress.yaml
+
+jobs:
+  diff:
+    if: ${{ inputs.mode == 'diff' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: elliotJHarding/meals_cluster
+          ref: ${{ inputs.meals_cluster_ref }}
+          path: meals_cluster
+
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.31.5'
+
+      - name: Configure kubectl
+        run: echo -n "${{ secrets.KUBECONFIG }}" | base64 -d > kubeconfig
+
+      - name: Diff against the live cluster
+        # kubectl diff exits 1 when there are differences and >1 on error
+        run: |
+          set +e
+          kubectl diff --kubeconfig=kubeconfig $(for f in $MANIFESTS; do echo -f $f; done)
+          status=$?
+          [ $status -le 1 ] || exit $status
+
+  deploy:
+    if: ${{ inputs.mode == 'deploy' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: meals_client
+
+      - uses: actions/checkout@v4
+        with:
+          repository: elliotJHarding/meals_model
+          ref: ${{ inputs.meals_model_ref }}
+          path: meals_model
+
+      - uses: actions/checkout@v4
+        with:
+          repository: elliotJHarding/meals_cluster
+          ref: ${{ inputs.meals_cluster_ref }}
+          path: meals_cluster
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate the contract TypeScript package
+        # build/ is gitignored in meals_model, so the web image's file: dependency is generated here
+        working-directory: meals_model
+        run: |
+          ./gradlew prepareTypeScriptPackage
+          cd build/typescript-package && npm install && npm run build
+
+      - name: Place the .dockerignore at the build context root
+        # docker reads .dockerignore only from the context root, which is the workspace here
+        run: cp meals_client/apps/web/.dockerignore .dockerignore
+
+      - uses: docker/login-action@v3
+        with:
+          registry: 'grubplanner.co.uk:32000'
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: meals_client/apps/web/Dockerfile
+          push: true
+          tags: grubplanner.co.uk:32000/meals_client_web:latest
+          build-args: |
+            VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.31.5'
+
+      - name: Configure kubectl
+        run: echo -n "${{ secrets.KUBECONFIG }}" | base64 -d > kubeconfig
+
+      - name: Apply manifests and restart
+        run: |
+          kubectl apply --kubeconfig=kubeconfig $(for f in $MANIFESTS; do echo -f $f; done)
+          kubectl rollout restart deployment meals-client-web --kubeconfig=kubeconfig
+          kubectl rollout status deployment meals-client-web --timeout=180s --kubeconfig=kubeconfig
