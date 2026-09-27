@@ -93,6 +93,9 @@ jobs:
         run: |
           ./gradlew prepareTypeScriptPackage
           cd build/typescript-package && npm install && npm run build
+          # dist/ is built now. npm 10 (node:23.4 image) runs a file: dependency's prepare
+          # even with --ignore-scripts, and tsc is not installed there.
+          npm pkg delete scripts.prepare
 
       - name: Place the .dockerignore at the build context root
         # docker reads .dockerignore only from the context root, which is the workspace here
