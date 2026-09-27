@@ -15,8 +15,20 @@ const workspaceRoot = path.resolve(projectRoot, '../..'); // repo root: /Users/h
 
 const config = getDefaultConfig(projectRoot);
 
-// 1. Watch all files within the monorepo
-config.watchFolders = [workspaceRoot];
+// 1. Watch all files within the monorepo, PLUS the contract package. The
+//    @elliotJHarding/meals-api dep is symlinked from the repo-root node_modules
+//    to ../../meals_model/build/typescript-package — a SIBLING repo outside this
+//    workspace. Metro only resolves/serves files under a watchFolder, so the
+//    symlink's real target must be watched explicitly or bundling fails with
+//    "Unable to resolve @elliotJHarding/meals-api".
+const contractPkg = path.resolve(
+  workspaceRoot,
+  '..',
+  'meals_model',
+  'build',
+  'typescript-package',
+);
+config.watchFolders = [workspaceRoot, contractPkg];
 
 // 2. Resolve packages from the app's node_modules first, then the monorepo root
 config.resolver.nodeModulesPaths = [
