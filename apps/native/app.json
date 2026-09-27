@@ -2,7 +2,7 @@
   "expo": {
     "name": "Grub",
     "slug": "grub",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "grub",
@@ -17,6 +17,7 @@
     },
     "android": {
       "package": "com.harding.meals_android_client",
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#f3f4ed"
