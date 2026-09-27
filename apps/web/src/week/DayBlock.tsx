@@ -1,18 +1,24 @@
 import { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { PlanDto } from '@elliotJHarding/meals-api';
+import { CalendarEventDto, PlanDto } from '@elliotJHarding/meals-api';
 
 type DayBlockProps = {
   date: Date;
-  plan: PlanDto | undefined;
   isToday: boolean;
-  onAdd: (text: string) => void;
-  onRemove: (index: number) => void;
+  mode: 'meals' | 'calendar';
+  plan?: PlanDto;
+  onAdd?: (text: string) => void;
+  onRemove?: (index: number) => void;
+  // Pre-grouped and sorted for this day (see eventsFor); only used in calendar mode.
+  events?: CalendarEventDto[];
 };
 
 const DOW = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
-export default function DayBlock({ date, plan, isToday, onAdd, onRemove }: DayBlockProps) {
+const eventTime = (time: Date): string =>
+  new Date(time).toLocaleTimeString('en-gb', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+export default function DayBlock({ date, plan, isToday, mode, onAdd, onRemove, events = [] }: DayBlockProps) {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -28,7 +34,7 @@ export default function DayBlock({ date, plan, isToday, onAdd, onRemove }: DayBl
     setDraft('');
     setAdding(false);
     if (text.length > 0) {
-      onAdd(text);
+      onAdd?.(text);
     }
   };
 
@@ -48,6 +54,28 @@ export default function DayBlock({ date, plan, isToday, onAdd, onRemove }: DayBl
         <span className="num">{date.getDate()}</span>
       </div>
 
+      {mode === 'calendar' ? (
+        <div className="entries">
+          <AnimatePresence initial={false}>
+            {events.map((event, index) => (
+              <motion.div
+                layout
+                className="event-chip"
+                key={`${event.name}-${index}`}
+                style={{ background: event.colour, color: event.textColour }}
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, x: 24, transition: { duration: 0.16 } }}
+              >
+                {!event.allDay && event.time != null && (
+                  <span className="event-time">{eventTime(event.time)}</span>
+                )}
+                <span className="event-name">{event.name}</span>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      ) : (
       <div className="entries">
         <AnimatePresence initial={false}>
           {planMeals.map((planMeal, index) => (
@@ -64,7 +92,7 @@ export default function DayBlock({ date, plan, isToday, onAdd, onRemove }: DayBl
               <button
                 className="remove"
                 aria-label="Remove entry"
-                onClick={() => onRemove(index)}
+                onClick={() => onRemove?.(index)}
               >
                 ×
               </button>
@@ -98,6 +126,7 @@ export default function DayBlock({ date, plan, isToday, onAdd, onRemove }: DayBl
           </motion.button>
         )}
       </div>
+      )}
     </motion.section>
   );
 }

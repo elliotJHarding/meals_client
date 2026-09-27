@@ -52,9 +52,12 @@ export {
   useJoinFamilyGroup,
   useCalendarAuthorized,
   useCalendars,
+  useCalendarEvents,
   useUpdateActiveCalendars,
   useLinkCalendar,
   useCalendarAuthUrl,
+  sortCalendarEvents,
+  eventsForDay,
 } from './query';
 
 // Auth: the platform-agnostic orchestration + React shell, the platform seam

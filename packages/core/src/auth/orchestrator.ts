@@ -63,6 +63,20 @@ export class AuthOrchestrator {
   }
 
   /**
+   * Web auth-code login. The web sign-in uses Google's auth-code flow, which
+   * yields a serverAuthCode but no id_token; the server (/auth/login/authcode)
+   * exchanges it once, deriving identity and storing the offline grant
+   * (calendar + Gemini scopes). As with {@link login}, the response is ignored
+   * for identity — whoAmI() is the single source of truth. There is no bearer
+   * token on web, so the persist is a no-op; kept for symmetry.
+   */
+  async loginWithAuthCode(authCode: string): Promise<AppUserDto | null> {
+    const response = await this.api.loginWithAuthCode({ authCode });
+    await this.persistBearerTokenIfPresent(response.data);
+    return this.whoAmI();
+  }
+
+  /**
    * The currently authenticated user, or null if logged out.
    *
    * 401/403 means "not logged in" and maps to null; any other error is a real

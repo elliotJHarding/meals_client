@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useCalendarEvents, useCalendarAuthUrl } from '@meals_client/core';
 import { formatDate } from '../api/client';
 import { useWeekPlans } from './useWeekPlans';
 import DayBlock from './DayBlock';
+
+type Mode = 'meals' | 'calendar';
 
 const mondayOf = (date: Date): Date => {
   const monday = new Date(date);
@@ -35,7 +38,10 @@ const weekVariants = {
 export default function WeekView() {
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
   const [direction, setDirection] = useState(0);
+  // Screen-level, not persisted: defaults to meals and resets on reload.
+  const [mode, setMode] = useState<Mode>('meals');
   const { planFor, loading, saveState, addEntry, removeEntry } = useWeekPlans(weekStart);
+  const { eventsFor, authorized } = useCalendarEvents(weekStart);
 
   const changeWeek = (to: Date, dir: number) => {
     setDirection(dir);
@@ -43,17 +49,13 @@ export default function WeekView() {
   };
 
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const weekEnd = weekDates[6];
   const todayKey = formatDate(new Date());
   const onCurrentWeek = weekDates.some((date) => formatDate(date) === todayKey);
 
-  const range =
-    weekStart.getMonth() === weekEnd.getMonth()
-      ? `${weekStart.getDate()}–${weekEnd.getDate()} ${weekStart.getFullYear()}`
-      : `${weekStart.getDate()} ${MONTHS[weekStart.getMonth()].slice(0, 3)} – ${weekEnd.getDate()} ${MONTHS[weekEnd.getMonth()].slice(0, 3)} ${weekEnd.getFullYear()}`;
+  const year = weekStart.getFullYear();
 
   return (
-    <div className="page">
+    <div className="page week-page">
       <AnimatePresence>
         {saveState !== 'idle' && (
           <motion.div
@@ -70,7 +72,7 @@ export default function WeekView() {
       <header className="week-header">
         <h1 className="display">
           {MONTHS[weekStart.getMonth()]}
-          <span className="week-range smallcaps">{range}</span>
+          <span className="week-year">{year}</span>
         </h1>
         <nav className="week-nav">
           {/* Always in the layout so the arrows never shift; fades in and out */}
@@ -107,7 +109,7 @@ export default function WeekView() {
       ) : (
         <AnimatePresence mode="wait" custom={direction} initial={false}>
           <motion.div
-            key={formatDate(weekStart)}
+            key={`${mode}-${formatDate(weekStart)}`}
             custom={direction}
             variants={weekVariants}
             initial="enter"
@@ -115,19 +117,102 @@ export default function WeekView() {
             exit="exit"
             transition={{ duration: 0.22, ease: 'easeOut' }}
           >
-            {weekDates.map((date) => (
-              <DayBlock
-                key={formatDate(date)}
-                date={date}
-                plan={planFor(date)}
-                isToday={formatDate(date) === todayKey}
-                onAdd={(text) => addEntry(date, text)}
-                onRemove={(entryIndex) => removeEntry(date, entryIndex)}
-              />
-            ))}
+            {mode === 'calendar'
+              ? renderCalendar()
+              : weekDates.map((date) => (
+                  <DayBlock
+                    key={formatDate(date)}
+                    date={date}
+                    mode="meals"
+                    plan={planFor(date)}
+                    isToday={formatDate(date) === todayKey}
+                    onAdd={(text) => addEntry(date, text)}
+                    onRemove={(entryIndex) => removeEntry(date, entryIndex)}
+                  />
+                ))}
           </motion.div>
         </AnimatePresence>
       )}
+
+      <div className="mode-switch" role="tablist" aria-label="Show meals or calendar">
+        <button
+          role="tab"
+          aria-selected={mode === 'meals'}
+          className={mode === 'meals' ? 'active' : ''}
+          onClick={() => setMode('meals')}
+          aria-label="Show meals"
+        >
+          <MealIcon />
+        </button>
+        <button
+          role="tab"
+          aria-selected={mode === 'calendar'}
+          className={mode === 'calendar' ? 'active' : ''}
+          onClick={() => setMode('calendar')}
+          aria-label="Show calendar"
+        >
+          <CalendarIcon />
+        </button>
+      </div>
     </div>
+  );
+
+  function renderCalendar() {
+    // Tri-state: undefined while the authorised check is in flight (render
+    // nothing), false → prompt to connect, true → the week's events.
+    if (authorized === undefined) return null;
+    if (authorized === false) return <ConnectCalendarPrompt />;
+    const hasAnyEvent = weekDates.some((date) => eventsFor(date).length > 0);
+    if (!hasAnyEvent) return <p className="section-note calendar-empty">No events this week</p>;
+    return weekDates.map((date) => (
+      <DayBlock
+        key={formatDate(date)}
+        date={date}
+        mode="calendar"
+        isToday={formatDate(date) === todayKey}
+        events={eventsFor(date)}
+      />
+    ));
+  }
+}
+
+function ConnectCalendarPrompt() {
+  const calendarAuthUrl = useCalendarAuthUrl();
+  const [connecting, setConnecting] = useState(false);
+
+  const onConnect = async () => {
+    setConnecting(true);
+    // Full-page redirect to Google's consent screen; the server returns the
+    // user to /calendar/link with a `code` exchanged by CalendarLinkCallback.
+    window.location.href = await calendarAuthUrl.mutateAsync();
+  };
+
+  return (
+    <div className="calendar-connect">
+      <p className="section-note">
+        Connect your Google Calendar so the week knows what you have on.
+      </p>
+      <button className="pill primary" onClick={onConnect} disabled={connecting}>
+        {connecting ? 'connecting' : 'connect google calendar'}
+      </button>
+    </div>
+  );
+}
+
+function MealIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 3v8a2 2 0 0 0 4 0V3M7 11v10" />
+      <path d="M17 3c-1.5 0-2.5 1.8-2.5 4.5S15.5 12 17 12s2.5-1.8 2.5-4.5S18.5 3 17 3zM17 12v9" />
+    </svg>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 9h18M8 3v4M16 3v4" />
+    </svg>
   );
 }

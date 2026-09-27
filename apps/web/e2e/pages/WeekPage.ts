@@ -9,12 +9,30 @@ export class WeekPage {
   readonly dayBlocks: Locator;
   readonly today: Locator;
   readonly linkedDots: Locator;
+  readonly modeSwitch: Locator;
+  readonly mealsToggle: Locator;
+  readonly calendarToggle: Locator;
+  readonly eventChips: Locator;
+  readonly calendarConnect: Locator;
 
   constructor(private readonly page: Page) {
     this.subtitle = page.locator('.week-subtitle');
     this.dayBlocks = page.locator('.day-block');
     this.today = page.locator('.day-block.today');
     this.linkedDots = page.locator('.entry-row .linked-dot');
+    this.modeSwitch = page.locator('.mode-switch');
+    this.mealsToggle = page.getByRole('tab', { name: 'Show meals' });
+    this.calendarToggle = page.getByRole('tab', { name: 'Show calendar' });
+    this.eventChips = page.locator('.event-chip');
+    this.calendarConnect = page.locator('.calendar-connect');
+  }
+
+  async showCalendar(): Promise<void> {
+    await this.calendarToggle.click();
+  }
+
+  async showMeals(): Promise<void> {
+    await this.mealsToggle.click();
   }
 
   async goto(): Promise<void> {

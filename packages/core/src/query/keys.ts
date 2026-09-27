@@ -21,5 +21,6 @@ export const queryKeys = {
   calendar: {
     authorized: ['calendar', 'authorized'] as const,
     list: ['calendar', 'list'] as const,
+    events: (weekStart: Date) => ['calendar', 'events', formatDate(weekStart)] as const,
   },
 } as const;

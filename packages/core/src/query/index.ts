@@ -41,7 +41,10 @@ export {
 export {
   useCalendarAuthorized,
   useCalendars,
+  useCalendarEvents,
   useUpdateActiveCalendars,
   useLinkCalendar,
   useCalendarAuthUrl,
+  sortCalendarEvents,
+  eventsForDay,
 } from './useCalendar';

@@ -125,7 +125,7 @@ function ReceiptRow({ receipt }: { receipt: ReceiptDto }) {
 const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.xl,
+    paddingTop: theme.spacing.sm,
   },
   header: {
     marginBottom: theme.spacing.sm,

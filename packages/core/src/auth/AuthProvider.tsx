@@ -19,6 +19,12 @@ export interface AuthState {
   user: AppUserDto | null;
   loading: boolean;
   login: (googleCredential: string) => Promise<void>;
+  /**
+   * Web auth-code sign-in: exchange a Google serverAuthCode for a session via
+   * /auth/login/authcode (identity + offline grant in one consent), then set the
+   * user. Web's primary login path; native uses the token-based `login`.
+   */
+  loginWithAuthCode: (authCode: string) => Promise<void>;
   logout: () => Promise<void>;
   /**
    * Re-resolve the current user from the server (whoAmI) and update state,
@@ -90,6 +96,10 @@ export function AuthProvider({ adapters, children }: AuthProviderProps) {
       loading,
       login: async (googleCredential: string) => {
         const resolved = await orchestrator.login(googleCredential);
+        setUser(resolved);
+      },
+      loginWithAuthCode: async (authCode: string) => {
+        const resolved = await orchestrator.loginWithAuthCode(authCode);
         setUser(resolved);
       },
       refreshUser: async () => {

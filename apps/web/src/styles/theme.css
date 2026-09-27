@@ -176,7 +176,7 @@ input {
 
 .week-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   margin: 6px 0 18px;
 }
@@ -223,9 +223,13 @@ input {
   transition: opacity 200ms ease;
 }
 
-.week-range {
-  margin-left: 10px;
+/* Same size as the month, but Montserrat upright + light against Lora italic */
+.week-year {
+  font-family: var(--font-body);
   font-style: normal;
+  font-weight: 300;
+  margin-left: 10px;
+  color: var(--ink-faded);
 }
 
 .day-block {
@@ -366,6 +370,88 @@ input {
   color: #fff;
   background: var(--error);
   border-color: var(--error);
+}
+
+/* ── calendar mode (meals ⇄ calendar pill, event chips) ── */
+
+/* Reserve room below the last day so neither the fixed bottom-nav nor the
+   floating mode-switch pill can ever cover content. */
+.week-page {
+  padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 96px);
+}
+
+/* Floating bottom-centre pill, sitting above .bottom-nav (z-index 10) but below
+   the saving indicator (20). */
+.mode-switch {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 16px);
+  z-index: 11;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--paper-raised) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--rule);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.mode-switch button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 34px;
+  border-radius: 999px;
+  color: var(--ink-faded);
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.mode-switch button.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.event-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin: 4px 0;
+  border-radius: 8px;
+  font-size: 0.98rem;
+  /* colour/textColour are applied inline from the event; this is the fallback
+     for events with no calendar colour. */
+  background: var(--paper-raised);
+}
+
+.event-chip .event-time {
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.event-chip .event-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.calendar-empty {
+  margin-top: 24px;
+  text-align: center;
+}
+
+.calendar-connect {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 32px;
+  text-align: center;
 }
 
 /* ── library ──

@@ -5,21 +5,27 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import type { PlanDto } from '@elliotJHarding/meals-api';
+import type { CalendarEventDto, PlanDto } from '@elliotJHarding/meals-api';
 import { theme } from '../../theme';
 import { AppText } from '../ui';
 
 type DayBlockProps = {
   date: Date;
-  plan: PlanDto | undefined;
   isToday: boolean;
   /** First row in the week — no top rule above it (mirrors web's `.day-block + .day-block`). */
   isFirst: boolean;
-  onAdd: (text: string) => void;
-  onRemove: (index: number) => void;
+  mode: 'meals' | 'calendar';
+  plan?: PlanDto;
+  onAdd?: (text: string) => void;
+  onRemove?: (index: number) => void;
+  /** Pre-grouped and sorted for this day (see eventsFor); only used in calendar mode. */
+  events?: CalendarEventDto[];
 };
 
 const DOW = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+const eventTime = (time: Date): string =>
+  new Date(time).toLocaleTimeString('en-gb', { hour: '2-digit', minute: '2-digit', hour12: false });
 
 /**
  * One dated day row of the week: a fixed-width date column (day-of-week + number)
@@ -31,7 +37,7 @@ const DOW = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
  * dropped without a save. The entry `key` matches web (`id ?? freeText-index`)
  * so optimistic rows with no id still key cleanly.
  */
-export function DayBlock({ date, plan, isToday, isFirst, onAdd, onRemove }: DayBlockProps) {
+export function DayBlock({ date, plan, isToday, isFirst, mode, onAdd, onRemove, events = [] }: DayBlockProps) {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
 
@@ -40,7 +46,7 @@ export function DayBlock({ date, plan, isToday, isFirst, onAdd, onRemove }: DayB
     setDraft('');
     setAdding(false);
     if (text.length > 0) {
-      onAdd(text);
+      onAdd?.(text);
     }
   };
 
@@ -61,6 +67,25 @@ export function DayBlock({ date, plan, isToday, isFirst, onAdd, onRemove }: DayB
         {isToday ? <View style={styles.todayUnderline} /> : null}
       </View>
 
+      {mode === 'calendar' ? (
+        <View style={styles.entries}>
+          {events.map((event, index) => (
+            <View
+              key={`${event.name}-${index}`}
+              style={[styles.eventChip, { backgroundColor: event.colour ?? theme.colors.paperRaised }]}
+            >
+              {!event.allDay && event.time != null ? (
+                <AppText style={[styles.eventTime, event.textColour ? { color: event.textColour } : null]}>
+                  {eventTime(event.time)}
+                </AppText>
+              ) : null}
+              <AppText style={[styles.eventName, event.textColour ? { color: event.textColour } : null]}>
+                {event.name}
+              </AppText>
+            </View>
+          ))}
+        </View>
+      ) : (
       <View style={styles.entries}>
         {planMeals.map((planMeal, index) => (
           <View
@@ -75,7 +100,7 @@ export function DayBlock({ date, plan, isToday, isFirst, onAdd, onRemove }: DayB
               accessibilityRole="button"
               accessibilityLabel="Remove entry"
               hitSlop={8}
-              onPress={() => onRemove(index)}
+              onPress={() => onRemove?.(index)}
               style={({ pressed }) => [styles.remove, pressed && styles.removePressed]}
             >
               <AppText style={styles.removeGlyph}>{'×'}</AppText>
@@ -111,6 +136,7 @@ export function DayBlock({ date, plan, isToday, isFirst, onAdd, onRemove }: DayB
           </Pressable>
         )}
       </View>
+      )}
     </View>
   );
 }
@@ -165,6 +191,25 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
     borderBottomColor: theme.colors.rule,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  eventChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginVertical: 4,
+    borderRadius: 8,
+  },
+  eventTime: {
+    fontFamily: theme.fonts.bodyBold,
+    fontSize: 14,
+    color: theme.colors.ink,
+  },
+  eventName: {
+    flex: 1,
+    fontSize: 16,
+    color: theme.colors.ink,
   },
   linkedDot: {
     width: 6,

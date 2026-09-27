@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Calendar } from '@elliotJHarding/meals-api';
+import type { Calendar, CalendarEventDto } from '@elliotJHarding/meals-api';
+import { asApiDate } from './api-client';
 import { queryKeys } from './keys';
 import { useMealsApi } from './provider';
 
@@ -40,6 +41,67 @@ export function useCalendars(authorized: boolean) {
       }
     },
   });
+}
+
+/**
+ * Orders a day's events for display: all-day events first, then timed events
+ * ascending by start time. Lifted from the v1 web client's CalendarEvents sort
+ * so both clients order events identically. `time` arrives as a string despite
+ * the `Date` type, so it is wrapped before comparison.
+ */
+export function sortCalendarEvents(a: CalendarEventDto, b: CalendarEventDto): number {
+  if (a.allDay && b.allDay) return 0;
+  if (a.allDay) return -1;
+  if (b.allDay) return 1;
+  if (a.time == null || b.time == null) return 0;
+  return new Date(a.time).getTime() - new Date(b.time).getTime();
+}
+
+/**
+ * The events falling on a given day, ready to render: filtered by local-day
+ * match and sorted via {@link sortCalendarEvents}. Matching uses `toDateString`
+ * equality (the v1 approach) and tolerates `time` being a wire string.
+ */
+export function eventsForDay(events: CalendarEventDto[], day: Date): CalendarEventDto[] {
+  return events
+    .filter((event) => event.time != null && new Date(event.time).toDateString() === day.toDateString())
+    .sort(sortCalendarEvents);
+}
+
+/**
+ * Reads the calendar events for a Monday-keyed week, mirroring
+ * {@link useWeekPlansQuery}: one cache entry per week (instant on revisit,
+ * background refetch), the same six-day span, and `asApiDate` so the formatted
+ * day string satisfies the SDK's `Date` params.
+ *
+ * Only fetches once calendar access is authorised (`enabled: authorized ===
+ * true`), reusing {@link useCalendarAuthorized}. Any error maps to an empty
+ * list, matching {@link useCalendars}. Surfaces `authorized` so views have a
+ * single tri-state source, and an `eventsFor(day)` selector that groups + sorts
+ * a day's events (the analogue of `planFor`).
+ */
+export function useCalendarEvents(weekStart: Date) {
+  const { calendarApi } = useMealsApi();
+  const { data: authorized } = useCalendarAuthorized();
+
+  const query = useQuery<CalendarEventDto[]>({
+    queryKey: queryKeys.calendar.events(weekStart),
+    enabled: authorized === true,
+    queryFn: async () => {
+      const end = new Date(weekStart);
+      end.setDate(end.getDate() + 6);
+      try {
+        return (await calendarApi.getCalendarEvents(asApiDate(weekStart), asApiDate(end))).data;
+      } catch {
+        return [];
+      }
+    },
+  });
+
+  const events = query.data ?? [];
+  const eventsFor = (day: Date): CalendarEventDto[] => eventsForDay(events, day);
+
+  return { ...query, authorized, events, eventsFor };
 }
 
 /**

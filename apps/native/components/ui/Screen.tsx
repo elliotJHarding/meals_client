@@ -50,6 +50,9 @@ const styles = StyleSheet.create({
   },
   padded: {
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.xl,
+    // Snug top spacing under the safe-area inset — the status bar already
+    // provides the breathing room above, so a small gap here keeps the screen
+    // header (month, titles) from floating in a dead band.
+    paddingTop: theme.spacing.sm,
   },
 });

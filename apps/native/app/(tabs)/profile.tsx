@@ -73,7 +73,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.xl,
+    paddingTop: theme.spacing.sm,
     paddingBottom: theme.spacing.xxl,
   },
   identity: {

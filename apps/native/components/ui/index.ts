@@ -10,3 +10,4 @@ export { Card } from './Card';
 export { Button } from './Button';
 export { TextField } from './TextField';
 export { LoadingState, EmptyState } from './StateView';
+export { Calendar, Meal, Book, Cart, Person, ChevronLeft, ChevronRight } from './icons';

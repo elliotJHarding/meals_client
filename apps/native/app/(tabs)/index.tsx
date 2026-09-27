@@ -1,230 +1,157 @@
-import { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
-import { formatDate, useWeekPlans } from '@meals_client/core';
+import { useMemo, useRef, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import PagerView, { type PagerViewOnPageSelectedEvent } from 'react-native-pager-view';
+import { formatDate } from '@meals_client/core';
 
-import { AppText, LoadingState, Screen } from '../../components/ui';
-import { DayBlock } from '../../components/week/DayBlock';
+import { Calendar, Meal, Screen } from '../../components/ui';
+import { WeekBar } from '../../components/week/WeekBar';
+import { WeekList } from '../../components/week/WeekList';
+import { addDays, mondayOf, weeksBetween } from '../../components/week/dates';
 import { theme } from '../../theme';
 
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
+type Mode = 'meals' | 'calendar';
 
-/** Monday-normalise a date to 00:00 of that week's Monday (matches apps/web). */
-const mondayOf = (date: Date): Date => {
-  const monday = new Date(date);
-  monday.setHours(0, 0, 0, 0);
-  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-  return monday;
-};
+// A fixed set of week pages mounted once, centred on the reference week. HALF
+// weeks of swipe in each direction is far beyond any realistic use of a meal
+// planner, so the window never has to slide — which is what lets navigation be
+// purely declarative: `activeIndex` is the single source of truth and the pager
+// position follows it, with no imperative recentre/snap reconciliation.
+const HALF = 26;
+const SLOTS = 2 * HALF + 1;
 
-const addDays = (date: Date, days: number): Date => {
-  const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
-};
+// Only the active page and its immediate neighbours mount a WeekList (each owns
+// a per-week query); every other slot is a same-size empty View. pager-view
+// mounts all children, so this — not the slot count — is what bounds the number
+// of in-flight week queries to ~3. Neighbours are pre-mounted, so the page you
+// swipe to is already populated on arrival.
+const RENDER_RADIUS = 1;
 
 /**
  * The Week screen — the app's home / daily-use surface, ported from apps/web's
- * WeekView. Renders a Monday-normalised seven-day week of dated day blocks, each
- * holding free-text meal entries shared across the family group.
+ * WeekView. A fixed WeekBar (month + week controls) sits above a horizontally
+ * swipeable body of weeks.
  *
- * All server state and mutations come from core's `useWeekPlans(weekStart)`:
- *  - `planFor(date)` selects a day's plan from the per-week cache.
- *  - `addEntry` / `removeEntry` are the optimistic mutations — they write the
- *    new entry into the cache before the network resolves and roll back on
- *    error. `saveState` surfaces that lifecycle ('saving' / 'error').
- *
- * The per-week query key means revisiting a week renders instantly from cache;
- * `loading` only blocks render for the very first week ever loaded, so paging
- * between weeks fills in day blocks rather than flashing a full-page loader.
+ * Swipe is a `PagerView` over a fixed window of weeks centred on the week the
+ * screen mounted in. `activeIndex` tracks the visible page and is the only
+ * state; the chevrons and the "today" pill drive the pager with `setPage`, whose
+ * `onPageSelected` echo simply updates `activeIndex`. There is no anchor,
+ * recentre, or programmatic-snap suppression — navigation is fully declarative,
+ * so "today" lands deterministically. Each page is a `WeekList` owning its own
+ * per-week query; off-window pages render empty until swiped near.
  */
 export default function WeekScreen() {
-  const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
-  const { planFor, loading, saveState, addEntry, removeEntry } = useWeekPlans(weekStart);
+  // Fixed at mount: the centre of the window. Week for slot i is this plus
+  // (i - HALF) weeks. mondayOf keeps it aligned with the per-week query keys.
+  const [referenceMonday] = useState(() => mondayOf(new Date()));
+  const [activeIndex, setActiveIndex] = useState(HALF);
+  // Screen-level so it survives page swipes (each WeekList is memoised per week);
+  // defaults to meals and is not persisted across reload.
+  const [mode, setMode] = useState<Mode>('meals');
+  const pagerRef = useRef<PagerView>(null);
 
-  const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const weekEnd = weekDates[6];
-  const todayKey = formatDate(new Date());
-  const onCurrentWeek = weekDates.some((date) => formatDate(date) === todayKey);
-
-  const range =
-    weekStart.getMonth() === weekEnd.getMonth()
-      ? `${weekStart.getDate()}–${weekEnd.getDate()} ${weekStart.getFullYear()}`
-      : `${weekStart.getDate()} ${MONTHS[weekStart.getMonth()].slice(0, 3)} – ${weekEnd.getDate()} ${MONTHS[weekEnd.getMonth()].slice(0, 3)} ${weekEnd.getFullYear()}`;
-
-  const header = (
-    <View style={styles.header}>
-      <View style={styles.title}>
-        <AppText variant="displayLarge" style={styles.month}>
-          {MONTHS[weekStart.getMonth()]}
-        </AppText>
-        <AppText style={styles.range}>{range}</AppText>
-      </View>
-      <View style={styles.nav}>
-        {!onCurrentWeek ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setWeekStart(mondayOf(new Date()))}
-            style={({ pressed }) => [styles.todayPill, pressed && styles.pressed]}
-          >
-            <AppText style={styles.todayLabel}>today</AppText>
-          </Pressable>
-        ) : null}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Previous week"
-          onPress={() => setWeekStart((current) => addDays(current, -7))}
-          style={({ pressed }) => [styles.arrow, pressed && styles.arrowPressed]}
-        >
-          <AppText style={styles.arrowGlyph}>{'‹'}</AppText>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Next week"
-          onPress={() => setWeekStart((current) => addDays(current, 7))}
-          style={({ pressed }) => [styles.arrow, pressed && styles.arrowPressed]}
-        >
-          <AppText style={styles.arrowGlyph}>{'›'}</AppText>
-        </Pressable>
-      </View>
-    </View>
+  const pages = useMemo(
+    () => Array.from({ length: SLOTS }, (_, i) => addDays(referenceMonday, (i - HALF) * 7)),
+    [referenceMonday],
   );
+
+  // Recomputed each render so a midnight rollover into a new week during a long
+  // session still points "today" at the right slot.
+  const todayIndex = HALF + weeksBetween(referenceMonday, mondayOf(new Date()));
+  const visibleWeek = pages[activeIndex];
+
+  const onPageSelected = (event: PagerViewOnPageSelectedEvent) => {
+    setActiveIndex(event.nativeEvent.position);
+  };
 
   return (
     <Screen>
-      {saveState !== 'idle' ? (
-        <View style={[styles.saving, saveState === 'error' && styles.savingError]}>
-          <AppText
-            style={[styles.savingLabel, saveState === 'error' && styles.savingErrorLabel]}
-          >
-            {saveState === 'saving' ? 'saving…' : "couldn't save"}
-          </AppText>
-        </View>
-      ) : null}
+      <WeekBar
+        weekStart={visibleWeek}
+        showToday={activeIndex !== todayIndex}
+        onPrev={() => pagerRef.current?.setPage(activeIndex - 1)}
+        onNext={() => pagerRef.current?.setPage(activeIndex + 1)}
+        onToday={() => pagerRef.current?.setPage(todayIndex)}
+      />
+      <PagerView
+        ref={pagerRef}
+        style={styles.pager}
+        initialPage={HALF}
+        onPageSelected={onPageSelected}
+      >
+        {pages.map((pageWeek, i) => (
+          <View key={formatDate(pageWeek)} style={styles.pageHost}>
+            {Math.abs(i - activeIndex) <= RENDER_RADIUS ? (
+              <WeekList weekStart={pageWeek} mode={mode} />
+            ) : null}
+          </View>
+        ))}
+      </PagerView>
 
-      {loading ? (
-        <>
-          {header}
-          <LoadingState />
-        </>
-      ) : (
-        <FlatList
-          data={weekDates}
-          keyExtractor={(date) => formatDate(date)}
-          ListHeaderComponent={header}
-          renderItem={({ item: date, index }) => (
-            <DayBlock
-              date={date}
-              plan={planFor(date)}
-              isToday={formatDate(date) === todayKey}
-              isFirst={index === 0}
-              onAdd={(text) => addEntry(date, text)}
-              onRemove={(entryIndex) => removeEntry(date, entryIndex)}
-            />
-          )}
-          contentContainerStyle={styles.list}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+      {/* Floating bottom-centre pill: meals (default) ⇄ calendar. Sits just
+          above the tab bar; the empty area passes touches through (box-none)
+          so only the pill itself is interactive. */}
+      <View style={styles.modeSwitch} pointerEvents="box-none">
+        <View style={styles.modeSwitchPill}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Show meals"
+            accessibilityState={{ selected: mode === 'meals' }}
+            onPress={() => setMode('meals')}
+            style={[styles.modeButton, mode === 'meals' && styles.modeButtonActive]}
+          >
+            <Meal size={20} color={mode === 'meals' ? theme.colors.accent : theme.colors.inkFaded} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Show calendar"
+            accessibilityState={{ selected: mode === 'calendar' }}
+            onPress={() => setMode('calendar')}
+            style={[styles.modeButton, mode === 'calendar' && styles.modeButtonActive]}
+          >
+            <Calendar size={20} color={mode === 'calendar' ? theme.colors.accent : theme.colors.inkFaded} />
+          </Pressable>
+        </View>
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  list: {
-    paddingBottom: theme.spacing.xxl,
+  pager: {
+    flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    marginTop: theme.spacing.xs,
-    marginBottom: theme.spacing.md,
+  pageHost: {
+    flex: 1,
   },
-  title: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    flexShrink: 1,
-    gap: theme.spacing.sm,
-  },
-  month: {
-    fontFamily: theme.fonts.displayMedium,
-    fontSize: 30,
-    fontStyle: 'italic',
-  },
-  range: {
-    fontFamily: theme.fonts.bodyBold,
-    fontSize: 11,
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
-    color: theme.colors.inkFaded,
-  },
-  nav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-  },
-  todayPill: {
-    borderColor: theme.colors.accent,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    marginRight: theme.spacing.xs,
-  },
-  todayLabel: {
-    fontFamily: theme.fonts.bodyBold,
-    fontSize: 11,
-    letterSpacing: 1.1,
-    textTransform: 'uppercase',
-    color: theme.colors.accent,
-  },
-  arrow: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  arrowPressed: {
-    backgroundColor: theme.colors.accentSoft,
-  },
-  arrowGlyph: {
-    fontFamily: theme.fonts.body,
-    fontSize: 24,
-    lineHeight: 28,
-    color: theme.colors.inkFaded,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  saving: {
+  modeSwitch: {
     position: 'absolute',
-    top: theme.spacing.sm,
-    right: theme.spacing.md,
-    zIndex: 20,
+    left: 0,
+    right: 0,
+    bottom: theme.spacing.lg,
+    alignItems: 'center',
+  },
+  modeSwitchPill: {
+    flexDirection: 'row',
+    gap: 2,
+    padding: 4,
+    borderRadius: 999,
     backgroundColor: theme.colors.paperRaised,
     borderColor: theme.colors.rule,
     borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  modeButton: {
+    width: 52,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
   },
-  savingError: {
-    backgroundColor: theme.colors.error,
-    borderColor: theme.colors.error,
-  },
-  savingLabel: {
-    fontFamily: theme.fonts.bodyBold,
-    fontSize: 11,
-    letterSpacing: 1.3,
-    textTransform: 'uppercase',
-    color: theme.colors.inkFaded,
-  },
-  savingErrorLabel: {
-    color: theme.colors.paper,
+  modeButtonActive: {
+    backgroundColor: theme.colors.accentSoft,
   },
 });

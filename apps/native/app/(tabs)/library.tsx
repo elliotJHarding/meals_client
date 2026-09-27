@@ -92,7 +92,7 @@ function Header({ count }: { count: number }) {
 const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.xl,
+    paddingTop: theme.spacing.sm,
     paddingBottom: theme.spacing.xxl,
   },
   header: {
