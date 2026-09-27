@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
@@ -18,6 +19,7 @@ const SCOPES = [
 export default function LoginPage() {
   const { loginWithAuthCode, refreshUser } = useAuth();
   const navigate = useNavigate();
+  const [loginFailed, setLoginFailed] = useState(false);
 
   // Auth-code flow (not the ID-token widget): yields a serverAuthCode the server
   // exchanges for identity + an offline refresh token in one consent.
@@ -25,10 +27,19 @@ export default function LoginPage() {
     flow: 'auth-code',
     scope: SCOPES,
     onSuccess: async (codeResponse) => {
-      await loginWithAuthCode(codeResponse.code);
-      navigate('/', { replace: true });
+      setLoginFailed(false);
+      try {
+        await loginWithAuthCode(codeResponse.code);
+        navigate('/', { replace: true });
+      } catch (error) {
+        console.error('Server login failed', error);
+        setLoginFailed(true);
+      }
     },
-    onError: () => console.error('Google login failed'),
+    onError: (errorResponse) => {
+      console.error('Google login failed', errorResponse);
+      setLoginFailed(true);
+    },
   });
 
   // Dev-only shortcut: real Google login can't complete locally (the auth-code
@@ -54,6 +65,7 @@ export default function LoginPage() {
       <button className="pill primary" onClick={() => signIn()}>
         continue with Google
       </button>
+      {loginFailed && <p className="login-error">sign-in failed, please try again</p>}
       {import.meta.env.DEV && (
         <button className="pill" onClick={devLogin}>
           dev login (local)

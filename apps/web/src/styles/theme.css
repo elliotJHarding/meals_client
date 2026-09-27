@@ -765,6 +765,12 @@ input {
   margin: 18px 0;
 }
 
+.login-page .login-error {
+  color: var(--error);
+  font-size: 0.9rem;
+  margin: 8px 0 0;
+}
+
 .loading-page {
   min-height: 100dvh;
   display: grid;
