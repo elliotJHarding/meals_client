@@ -1,0 +1,41 @@
+# Build context is the meals/ workspace root, so ignore patterns are matched
+# from there. Keep the image build hermetic and small by excluding installed
+# deps, build output and dev/test artifacts from every copied tree.
+
+**/node_modules
+**/dist
+**/build
+**/.vite
+
+# Tests, e2e and dev artifacts
+**/test-results
+**/playwright-report
+**/.screenshots
+meals_client/apps/web/e2e
+
+# Native app — not part of the web image, and pulling it in would drag in Expo
+**/.expo
+meals_client/apps/native
+
+# Local env / secrets — production values are passed as build args
+**/*.local
+**/.env*.local
+
+# VCS / OS / editor
+**/.git
+**/.DS_Store
+**/*.orig
+
+# Exception: the contract's committed dist/ IS needed (file: dependency), so it
+# is re-included after the broad **/build and **/dist excludes above. The
+# contract's own node_modules stays excluded — npm install reinstalls them.
+#
+# NOTE: the classic docker builder reads .dockerignore from the CONTEXT ROOT
+# (the meals/ workspace dir), not from next to the Dockerfile. The effective
+# copy therefore lives at meals/.dockerignore; this file is kept in sync as the
+# documented intent and applies if anyone runs BuildKit with a per-Dockerfile
+# ignore. Keep the two in sync.
+!meals_model/build
+!meals_model/build/typescript-package
+!meals_model/build/typescript-package/**
+meals_model/build/typescript-package/node_modules

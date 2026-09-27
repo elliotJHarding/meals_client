@@ -1,0 +1,51 @@
+{
+  "//": "EAS Build config for the Grub native app (Expo SDK 56). appVersionSource=remote is the recommended behaviour from EAS CLI 12+: EAS owns android.versionCode / ios.buildNumber, and autoIncrement (set per profile below) bumps them server-side. android.package is com.harding.meals_android_client (see app.json). NO credentials are configured here: signing comes from EAS-managed (remote) credentials, which is the default credentialsSource.",
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "//": "base is a shared profile the three real profiles extend; it is never built directly.",
+    "base": {
+      "node": "20.18.0"
+    },
+    "development": {
+      "//": "Dev client build for on-device debugging. distribution=internal yields a shareable install URL; requires the expo-dev-client package to be added before this profile will produce a usable client. Android ships as an installable APK; iOS targets the simulator so it needs no provisioning. ios.simulator builds are .app bundles for the iOS Simulator, not device installs.",
+      "extends": "base",
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      }
+    },
+    "preview": {
+      "//": "Internal / ad-hoc test build of the production app (no dev client). distribution=internal gives a shareable install link. Android is an installable APK. iOS uses ad-hoc enterpriseProvisioning so the .ipa installs on registered test devices — this still needs the provisioned bundle id + Apple team (see the production ios note).",
+      "extends": "base",
+      "distribution": "internal",
+      "channel": "preview",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "enterpriseProvisioning": "adhoc"
+      }
+    },
+    "production": {
+      "//": "Store builds for both platforms. Android produces an .aab (app-bundle) for Google Play. autoIncrement bumps the EAS-managed build numbers each run (pairs with cli.appVersionSource=remote).",
+      "//ios": "iOS store build is NOT yet runnable: app.json still carries the placeholder bundleIdentifier com.harding.meals-ios-client. Before this profile can build, set a real provisioned iOS bundle id (and, for the share extension, its own bundle id + shared App Group) and supply the Apple Team ID — either via the eas.json submit.production.ios block or by letting EAS prompt for App Store Connect credentials. See app.config.js TODO(iOS provisioning).",
+      "extends": "base",
+      "distribution": "store",
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
